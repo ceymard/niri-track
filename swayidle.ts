@@ -1,7 +1,7 @@
 import { spawnLineStream } from "./spawn-liner"
 
 export type SwayidleEvent = {
-  type: "timeout" | "resume"
+  type: "Timeout" | "Resume"
   timestamp: number
 }
 
@@ -14,17 +14,17 @@ export async function* swayidleEventStream(idle: number) {
   const swayidle = spawnLineStream("swayidle", [
     "timeout",
     `${idle}`,
-    "echo timeout:$(date +%s%3N)",
+    "echo Timeout:$(date +%s%3N)",
     "resume",
-    "echo resume:$(date +%s%3N)",
+    "echo Resume:$(date +%s%3N)",
   ])
 
   for await (const line of swayidle) {
     const [type, timestamp] = line.trim().split(":")
     const event = {
-      type: type as "timeout" | "resume",
+      type: type as "Timeout" | "Resume",
       timestamp: Number(timestamp),
-    }
+    } as SwayidleEvent
     yield event
   }
 }
