@@ -19,6 +19,7 @@ async function run() {
           if (window.is_focused) {
             focused_window_id = window.id
           }
+          console.log("window:", window.id, window.title)
           return [window.id, window]
         })
       )
@@ -32,10 +33,24 @@ async function run() {
         })
       )
     } else if (event.type === "WorkspaceActivated") {
-      console.log("workspace activated:", event.id)
+      focused_workspace_id = event.id
     } else if (event.type === "WindowFocusChanged") {
-      // console.log("window focused:", event.id)
-      console.log("windows:", windows.get(event.id)?.title)
+      focused_window_id = event.id
+    } else if (event.type === "WindowOpenedOrChanged") {
+      windows.set(event.window.id, event.window)
+    } else if (event.type === "WindowClosed") {
+      windows.delete(event.id)
+    } else if (event.type === "WorkspaceActiveWindowChanged") {
+      const wrks = workspaces.get(event.workspace_id)
+      if (wrks) {
+        wrks.active_window_id = event.active_window_id
+      }
+    } else if (event.type === "timeout") {
+
+    } else if (event.type === "resume") {
+
+    } else {
+      console.log("event:", event)
     }
   }
 }

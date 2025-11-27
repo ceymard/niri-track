@@ -13,6 +13,14 @@ export interface Workspace {
   active_window_id: number
 }
 
+export interface WindowLayout {
+  pos_in_scrolling_layout: [number, number]
+  tile_size: [number, number]
+  window_size: [number, number]
+  tile_pos_in_workspace_view: [number, number] | null
+  window_offset_in_tile: [number, number]
+}
+
 export interface NiriWindow {
   id: number
   title: string
@@ -22,18 +30,22 @@ export interface NiriWindow {
   is_focused: boolean
   is_floating: boolean
   is_urgent: boolean
-  layout: {
-    pos_in_scrolling_layout: [number, number]
-    tile_size: [number, number]
-    window_size: [number, number]
-    tile_pos_in_workspace_view: [number, number] | null
-    window_offset_in_tile: [number, number]
-  }
+  layout: WindowLayout
 }
 
 export interface WorkspacesChanged {
   type: "WorkspacesChanged"
   workspaces: Workspace[]
+}
+
+export interface WindowOpenedOrChanged {
+  type: "WindowOpenedOrChanged"
+  window: NiriWindow
+}
+
+export interface WindowClosed {
+  type: "WindowClosed"
+  id: number
 }
 
 export interface WindowsChanged {
@@ -58,12 +70,53 @@ export interface WorkspaceActivated {
   focused: boolean
 }
 
+export interface OverviewOpenedOrClosed {
+  type: "OverviewOpenedOrClosed"
+  is_open: boolean
+}
+
+export interface ConfigLoaded {
+  type: "ConfigLoaded"
+  failed: boolean
+}
+
+export interface WorkspaceActiveWindowChanged {
+  type: "WorkspaceActiveWindowChanged"
+  workspace_id: number
+  active_window_id: number
+}
+
+export interface WindowLayoutChanged {
+  type: "WindowLayoutChanged"
+  changes: [number, WindowLayout][]
+}
+
+export interface KeyboardLayoutsChanged {
+  type: "KeyboardLayoutsChanged"
+  keyboard_layouts: {
+    names: string[]
+    current_idx: number
+  }
+}
+
+export interface KeyboardLayoutSwitched {
+  type: "KeyboardLayoutSwitched"
+  idx: number
+}
+
 export type NiriEvent =
   | WorkspacesChanged
   | WindowsChanged
   | WorkspaceActiveWindowChanged
   | WindowFocusChanged
   | WorkspaceActivated
+  | WindowOpenedOrChanged
+  | WindowClosed
+  | OverviewOpenedOrClosed
+  | ConfigLoaded
+  | WindowLayoutChanged
+  | KeyboardLayoutsChanged
+  | KeyboardLayoutSwitched
 
 /**
  * Creates an async iterable for niri event-stream
