@@ -86,8 +86,8 @@ export interface WorkspaceActiveWindowChanged {
   active_window_id: number
 }
 
-export interface WindowLayoutChanged {
-  type: "WindowLayoutChanged"
+export interface WindowLayoutsChanged {
+  type: "WindowLayoutsChanged"
   changes: [number, WindowLayout][]
 }
 
@@ -114,7 +114,7 @@ export type NiriEvent =
   | WindowClosed
   | OverviewOpenedOrClosed
   | ConfigLoaded
-  | WindowLayoutChanged
+  | WindowLayoutsChanged
   | KeyboardLayoutsChanged
   | KeyboardLayoutSwitched
 

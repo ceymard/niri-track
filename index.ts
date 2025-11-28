@@ -9,6 +9,21 @@ let windows_in_workspace = new Map<number, Map<number, NiriWindow>>()
 let focused_workspace_id: number = -1
 let last_timestamp = Date.now()
 
+export interface ProjectEvent {
+  type: "project"
+  project: string | null
+  duration: number
+}
+
+export interface WindowEvent {
+  type: "window"
+  project: string | null
+  command: string[]
+  duration: number
+}
+
+export type TimeEvent = ProjectEvent | WindowEvent
+
 export const Replacements = [/^.+? - (.+?) - (?=cursor|code).*$/i]
 
 function test_replacements(window: NiriWindow) {
@@ -23,7 +38,7 @@ function test_replacements(window: NiriWindow) {
 
 let current_name = null as string | null
 
-function changed(name: string | null) {
+function changed(name: string | null): TimeEvent | null {
   let name_has_changed = name !== current_name
   current_name = name
 
@@ -31,7 +46,7 @@ function changed(name: string | null) {
     const now = Date.now()
     const last = last_timestamp
     last_timestamp = now
-    return { name, duration: now - last }
+    return { type: "project", project: name, duration: now - last }
   }
   return null
 }
@@ -66,7 +81,7 @@ export function name_change_from_window(
 
 let timestamp_for_focus = Date.now()
 let focused_window_id: number | null = null
-function update_focus(window_id: number | null) {
+function update_focus(window_id: number | null): WindowEvent | null {
   if (window_id === focused_window_id) {
     return null
   }
@@ -84,7 +99,7 @@ function update_focus(window_id: number | null) {
         .split("\0")
     } catch (error) {}
   }
-  return { name: current_name, duration: timestamp_for_focus - last, exe, cmd }
+  return { type: "window", project: current_name ?? null, command: cmd, duration: timestamp_for_focus - last }
 }
 
 function update_window(win: NiriWindow) {
@@ -171,7 +186,8 @@ async function* changes_stream() {
       case "ConfigLoaded":
         // console.log("config loaded:", event.failed)
         break
-      case "WindowLayoutChanged":
+      case "WindowLayoutsChanged":
+        console.log("window layouts changed:", event.changes)
         break
       case "KeyboardLayoutsChanged":
         break
@@ -197,7 +213,7 @@ async function* changes_stream() {
         last_timestamp = Date.now()
         break
       default: {
-        console.log("event:", event)
+        console.log("unknown event:", event)
       }
     }
   }
