@@ -1,12 +1,13 @@
 #!/usr/bin/env bun
 import { niriEventStream, type NiriWindow, type Workspace } from "./niri"
 import { swayidleEventStream } from "./swayidle"
+import { readFileSync, readlinkSync } from "fs"
 import merge from "fast-merge-async-iterators"
 
 let windows = new Map<number, NiriWindow>()
 let windows_in_workspace = new Map<number, Map<number, NiriWindow>>()
 let focused_workspace_id: number = -1
-let focused_window_id: number = -1
+let last_timestamp = Date.now()
 
 export const Replacements = [/^.+? - (.+?) - (?=cursor|code).*$/i]
 
@@ -21,18 +22,29 @@ function test_replacements(window: NiriWindow) {
 }
 
 let current_name = null as string | null
+
+function changed(name: string | null) {
+  let name_has_changed = name !== current_name
+  current_name = name
+
+  if (name_has_changed) {
+    const now = Date.now()
+    const last = last_timestamp
+    last_timestamp = now
+    return { name, duration: now - last }
+  }
+  return null
+}
+
 export function name_change_from_window(
   window_id: number | null,
   workspace_id?: number
 ) {
-  let changed = false
   const window = windows.get(window_id!)
   if (window) {
     const replacements = test_replacements(window)
     if (replacements) {
-      changed = current_name !== replacements
-      current_name = replacements
-      return changed
+      return changed(replacements)
     }
     workspace_id = window.workspace_id
   }
@@ -44,16 +56,35 @@ export function name_change_from_window(
       }
       const replacements = test_replacements(wd)
       if (replacements) {
-        changed = current_name !== replacements
-        current_name = replacements
-        return changed
+        return changed(replacements)
       }
     }
   }
 
-  changed = current_name !== null
-  current_name = null
-  return changed
+  return changed(null)
+}
+
+let timestamp_for_focus = Date.now()
+let focused_window_id: number | null = null
+function update_focus(window_id: number | null) {
+  if (window_id === focused_window_id) {
+    return null
+  }
+  focused_window_id = window_id
+  const window = windows.get(window_id!)
+  const last = timestamp_for_focus
+  timestamp_for_focus = Date.now()
+  let exe = ""
+  let cmd: string[] = []
+  if (window) {
+    try {
+      exe = readlinkSync(`/proc/${window.pid}/exe`)
+      cmd = readFileSync(`/proc/${window.pid}/cmdline`, "utf-8")
+        .slice(0, -1)
+        .split("\0")
+    } catch (error) {}
+  }
+  return { name: current_name, duration: timestamp_for_focus - last, exe, cmd }
 }
 
 function update_window(win: NiriWindow) {
@@ -95,9 +126,8 @@ async function* changes_stream() {
           }
           update_window(win)
         }
-        if (name_change_from_window(focused_window_id)) {
-          yield { type: "NameChange", name: current_name }
-        }
+        update_focus(focused_window_id)
+        name_change_from_window(focused_window_id)
         break
       }
       case "WorkspacesChanged": {
@@ -105,8 +135,9 @@ async function* changes_stream() {
       }
       case "WorkspaceActivated": {
         focused_workspace_id = event.id
-        if (name_change_from_window(null, focused_workspace_id)) {
-          yield { type: "NameChange", name: current_name }
+        let change = name_change_from_window(null, focused_workspace_id)
+        if (change) {
+          yield change
         }
         break
       }
@@ -120,15 +151,20 @@ async function* changes_stream() {
       }
       case "WindowOpenedOrChanged": {
         update_window(event.window)
-        if (name_change_from_window(event.window.id)) {
-          yield { type: "NameChange", name: current_name }
+        let change = name_change_from_window(event.window.id)
+        if (change) {
+          yield change
         }
         break
       }
       case "WindowFocusChanged": {
-        focused_window_id = event.id
-        if (name_change_from_window(focused_window_id)) {
-          yield { type: "NameChange", name: current_name }
+        let foc = update_focus(event.id)
+        if (foc) {
+          yield foc
+        }
+        let change = name_change_from_window(focused_window_id)
+        if (change) {
+          yield change
         }
         break
       }
@@ -148,9 +184,17 @@ async function* changes_stream() {
         break
       case "Timeout":
         // When we get to a timeout, we yield a name with a duration
+        let now = Date.now()
+        let last = last_timestamp
+        last_timestamp = now
+        yield {
+          name: current_name,
+          duration: now - last,
+        }
 
         break
       case "Resume":
+        last_timestamp = Date.now()
         break
       default: {
         console.log("event:", event)
