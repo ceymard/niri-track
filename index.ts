@@ -65,7 +65,7 @@ export function name_change_from_window(
   }
 
   if (workspace_id) {
-    for (let wd of windows_in_workspace.get(workspace_id)?.values() ?? []) {
+    for (let wd of [...(windows_in_workspace.get(workspace_id)?.values() ?? [])].sort((a, b) => a.layout.pos_in_scrolling_layout[0] - b.layout.pos_in_scrolling_layout[0]) as NiriWindow[]) {
       if (wd.id === window_id) {
         continue
       }
@@ -187,7 +187,7 @@ async function* changes_stream() {
         // console.log("config loaded:", event.failed)
         break
       case "WindowLayoutsChanged":
-        console.log("window layouts changed:", event.changes)
+        // console.log("window layouts changed:", event.changes)
         break
       case "KeyboardLayoutsChanged":
         break
